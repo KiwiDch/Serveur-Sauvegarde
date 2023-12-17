@@ -128,6 +128,7 @@ struct AppState {
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+    println!("Serveur en ecoute sur le port 8080");
     HttpServer::new(|| {
         App::new()
             .app_data(web::Data::new(AppState {
@@ -140,7 +141,7 @@ async fn main() -> std::io::Result<()> {
                     .service(get_hash),
             )
     })
-    .bind(("127.0.0.1", 8080))?
+    .bind(("0.0.0.0", 8080))?
     .run()
     .await
 }
