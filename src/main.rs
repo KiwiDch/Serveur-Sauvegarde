@@ -3,7 +3,7 @@ use actix_multipart::Multipart;
 use actix_web::{get, put, web, App, Error, HttpResponse, HttpServer, Result};
 use futures_util::stream::StreamExt;
 use std::{ io::{Write, self, Read}, path::{PathBuf, Path}, collections::HashMap, fs::File};
-use walkdir::{DirEntry, WalkDir};
+use walkdir::WalkDir;
 use sha2::{Digest,Sha256};
 
 #[put("/push/{path:.*}")]
