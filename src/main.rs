@@ -2,9 +2,14 @@ use actix_files::NamedFile;
 use actix_multipart::Multipart;
 use actix_web::{get, put, web, App, Error, HttpResponse, HttpServer, Result};
 use futures_util::stream::StreamExt;
-use std::{ io::{Write, self, Read}, path::{PathBuf, Path}, collections::HashMap, fs::File};
+use sha2::{Digest, Sha256};
+use std::{
+    collections::HashMap,
+    fs::File,
+    io::{self, Read, Write},
+    path::{Path, PathBuf},
+};
 use walkdir::WalkDir;
-use sha2::{Digest,Sha256};
 
 #[put("/push/{path:.*}")]
 async fn push(
@@ -12,7 +17,6 @@ async fn push(
     data: web::Data<AppState>,
     mut multipart: Multipart,
 ) -> Result<HttpResponse, Error> {
-
     while let Some(item) = multipart.next().await {
         let mut field = item?;
 
@@ -29,7 +33,7 @@ async fn push(
             path_file.push(filename);
             path_file
         };
-        
+
         //Creation des dossiers si besoin
         //Creation du fichier
         let mut file = web::block(|| {
@@ -37,7 +41,9 @@ async fn push(
                 std::fs::create_dir_all(&path)?;
             }
             std::fs::File::create(path)
-        }).await.unwrap()?;
+        })
+        .await
+        .unwrap()?;
 
         //Ecriture
         while let Some(chunk) = field.next().await {
@@ -63,17 +69,20 @@ async fn get_file(path: web::Path<PathBuf>, data: web::Data<AppState>) -> Result
 }
 
 #[get("/hash/{path:.*}")]
-async fn get_hash(path: web::Path<PathBuf>, data: web::Data<AppState>) -> Result<HttpResponse, Error> {
+async fn get_hash(
+    path: web::Path<PathBuf>,
+    data: web::Data<AppState>,
+) -> Result<HttpResponse, Error> {
     let path = {
         let mut x = data.dir.clone();
         x.push(path.to_owned());
         x
     };
-    
-    let hashes = calculate_hash_recursive(&path);
 
-    let hashes:HashMap<PathBuf,String> = hashes.into_iter().map(|(k, d)| (k.strip_prefix(data.dir.clone()).unwrap().to_owned(),d)).collect();
-
+    let hashes:HashMap<PathBuf,String> = calculate_hash_recursive(&path)
+        .into_iter()
+        .map(|(k, d)| (k.strip_prefix(data.dir.clone()).unwrap().to_owned(), d))
+        .collect();
 
     Ok(HttpResponse::Ok().json(hashes))
 }
@@ -81,7 +90,7 @@ async fn get_hash(path: web::Path<PathBuf>, data: web::Data<AppState>) -> Result
 fn calculate_hash(file_path: &Path) -> io::Result<String> {
     let mut file = File::open(file_path)?;
     let mut hasher = Sha256::new();
-    let mut buffer = [0;1024];
+    let mut buffer = [0; 1024];
 
     loop {
         let bytes_read = file.read(&mut buffer)?;
@@ -94,17 +103,15 @@ fn calculate_hash(file_path: &Path) -> io::Result<String> {
     Ok(format!("{:x}", hasher.finalize()))
 }
 
-
-fn calculate_hash_recursive(path: &Path) -> HashMap<PathBuf,String>{
-    let mut hashes:HashMap<PathBuf, String> = HashMap::new();
+fn calculate_hash_recursive(path: &Path) -> HashMap<PathBuf, String> {
+    let mut hashes: HashMap<PathBuf, String> = HashMap::new();
 
     for entry in WalkDir::new(path).into_iter().filter_map(|e| e.ok()) {
         if entry.file_type().is_file() {
             if let Ok(hash) = calculate_hash(entry.path()) {
                 hashes.insert(entry.path().to_owned(), hash.to_string());
             }
-        }
-        else if entry.path() != path {
+        } else if entry.path() != path {
             let h = calculate_hash_recursive(entry.path());
             for (key, value) in h.into_iter() {
                 hashes.insert(key, value);
@@ -126,7 +133,12 @@ async fn main() -> std::io::Result<()> {
             .app_data(web::Data::new(AppState {
                 dir: PathBuf::from("./files"),
             }))
-            .service(web::scope("/files").service(push).service(get_file).service(get_hash))
+            .service(
+                web::scope("/files")
+                    .service(push)
+                    .service(get_file)
+                    .service(get_hash),
+            )
     })
     .bind(("127.0.0.1", 8080))?
     .run()
