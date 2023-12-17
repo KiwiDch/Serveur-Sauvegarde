@@ -1,9 +1,9 @@
 use actix_files::NamedFile;
 use actix_multipart::Multipart;
-use actix_web::{get, put, web, App, Error, HttpResponse, HttpServer, Responder, Result};
+use actix_web::{get, put, web, App, Error, HttpResponse, HttpServer, Result};
 use futures_util::stream::StreamExt;
-use std::{fs::File, io::{Write, self, Read}, path::{PathBuf, Path}, collections::HashMap};
-use walkdir::WalkDir;
+use std::{ io::{Write, self, Read}, path::{PathBuf, Path}, collections::HashMap, fs::File};
+use walkdir::{DirEntry, WalkDir};
 use sha2::{Digest,Sha256};
 
 #[put("/push/{path:.*}")]
@@ -48,7 +48,7 @@ async fn push(
         }
     }
 
-    Ok(HttpResponse::Ok().body(format!("Chemin: {:?}", path)))
+    Ok(HttpResponse::Ok().body(""))
 }
 
 #[get("/pull/{path:.*}")]
@@ -70,15 +70,11 @@ async fn get_hash(path: web::Path<PathBuf>, data: web::Data<AppState>) -> Result
         x
     };
     
-    let mut hashes:HashMap<String, String> = HashMap::new();
+    let hashes = calculate_hash_recursive(&path);
 
-    for entry in WalkDir::new(path.clone()).into_iter().filter_map(|e| e.ok()) {
-        if entry.file_type().is_file() {
-            if let Ok(hash) = calculate_hash(entry.path()) {
-                hashes.insert(String::from(entry.path().strip_prefix(data.dir.as_path()).unwrap().to_str().unwrap()), hash.to_string());
-            }
-        }
-    }
+    let hashes:HashMap<PathBuf,String> = hashes.into_iter().map(|(k, d)| (k.strip_prefix(data.dir.clone()).unwrap().to_owned(),d)).collect();
+
+
     Ok(HttpResponse::Ok().json(hashes))
 }
 
@@ -96,6 +92,27 @@ fn calculate_hash(file_path: &Path) -> io::Result<String> {
     }
 
     Ok(format!("{:x}", hasher.finalize()))
+}
+
+
+fn calculate_hash_recursive(path: &Path) -> HashMap<PathBuf,String>{
+    let mut hashes:HashMap<PathBuf, String> = HashMap::new();
+
+    for entry in WalkDir::new(path).into_iter().filter_map(|e| e.ok()) {
+        if entry.file_type().is_file() {
+            if let Ok(hash) = calculate_hash(entry.path()) {
+                hashes.insert(entry.path().to_owned(), hash.to_string());
+            }
+        }
+        else if entry.path() != path {
+            let h = calculate_hash_recursive(entry.path());
+            for (key, value) in h.into_iter() {
+                hashes.insert(key, value);
+            }
+        }
+    }
+
+    hashes
 }
 
 struct AppState {
