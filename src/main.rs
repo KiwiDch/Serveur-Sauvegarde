@@ -87,6 +87,21 @@ async fn get_hash(
     Ok(HttpResponse::Ok().json(hashes))
 }
 
+#[get("/rm/{path:.*}")]
+async fn remove_file(path: web::Path<PathBuf>, data: web::Data<AppState>) -> Result<HttpResponse, Error> {
+
+    let path = {
+        let mut p = data.dir.clone();
+        p.push(path.to_owned());
+        p
+    };
+    if std::fs::remove_file(&path).is_err() {
+        return Err(actix_web::error::ErrorBadRequest("Cannot delete"));
+    }
+
+    Ok(HttpResponse::Ok().body(""))
+}
+
 fn calculate_hash(file_path: &Path) -> io::Result<String> {
     let mut file = File::open(file_path)?;
     let mut hasher = Sha256::new();
@@ -138,7 +153,8 @@ async fn main() -> std::io::Result<()> {
                 web::scope("/files")
                     .service(push)
                     .service(get_file)
-                    .service(get_hash),
+                    .service(get_hash)
+                    .service(remove_file)
             )
     })
     .bind(("0.0.0.0", 8080))?
