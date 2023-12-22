@@ -89,18 +89,6 @@ async fn get_hash(
             .map(|e| e.into())
             .collect();
     Ok(HttpResponse::Ok().json(hashes))
-    /*let path = {
-        let mut x = data.dir.clone();
-        x.push(path.to_owned());
-        x
-    };
-
-    let hashes:HashMap<PathBuf,String> = calculate_hash_recursive(&path)
-        .into_iter()
-        .map(|(k, d)| (k.strip_prefix(data.dir.clone()).unwrap().to_owned(), d))
-        .collect();
-
-    Ok(HttpResponse::Ok().json(hashes))*/
 }
 
 #[get("/rm/{path:.*}")]
