@@ -27,8 +27,6 @@ async fn push(
             path_file.push(filename);
             path_file
         };
-
-        println!("{:?}", path);
         //Creation des dossiers si besoin
         //Creation du fichier
         let mut file = web::block({
@@ -82,11 +80,12 @@ async fn get_hash(
         x
     };
 
-    let hashes: HashMap<hash::Path, hash::Hash> =
+    let hashes: HashMap<PathBuf, String> =
         domain::read_all_file_hash::read_all_file_hash(&path,&data.stockage)
             .unwrap()
             .into_iter()
             .map(|e| e.into())
+            .map(|(k,d)| (k.value().strip_prefix(data.dir.clone()).unwrap().to_owned(), d.value().to_string()))
             .collect();
     Ok(HttpResponse::Ok().json(hashes))
 }
