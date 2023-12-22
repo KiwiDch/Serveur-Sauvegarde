@@ -46,7 +46,6 @@ impl Path {
 impl TryFrom<PathBuf> for Path {
     type Error = PathError;
     fn try_from(value: PathBuf) -> Result<Self, Self::Error> {
-        println!("{:?}",value);
         if !value.exists() {
             return Err(PathError::DoNotExist);
         }

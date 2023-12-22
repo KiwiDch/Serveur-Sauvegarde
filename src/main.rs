@@ -2,8 +2,13 @@ use actix_files::NamedFile;
 use actix_multipart::Multipart;
 use actix_web::{get, put, web, App, Error, HttpResponse, HttpServer, Result};
 use futures_util::stream::StreamExt;
-use sauvegarde::{domain::{self, delete_file_hash}, driven};
+use sauvegarde::{
+    domain::{self, delete_file_hash},
+    driven,
+};
 use std::{collections::HashMap, io::Write, path::PathBuf};
+use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
+
 
 #[put("/push/{path:.*}")]
 async fn push(
@@ -35,7 +40,6 @@ async fn push(
                 if let Some(path) = path.parent() {
                     std::fs::create_dir_all(path)?;
                 }
-                println!("{path:?}");
                 std::fs::File::create(path)
             }
         })
@@ -81,11 +85,16 @@ async fn get_hash(
     };
 
     let hashes: HashMap<PathBuf, String> =
-        domain::read_all_file_hash::read_all_file_hash(&path,&data.stockage)
+        domain::read_all_file_hash::read_all_file_hash(&path, &data.stockage)
             .unwrap()
             .into_iter()
             .map(|e| e.into())
-            .map(|(k,d)| (k.value().strip_prefix(data.dir.clone()).unwrap().to_owned(), d.value().to_string()))
+            .map(|(k, d)| {
+                (
+                    k.value().strip_prefix(data.dir.clone()).unwrap().to_owned(),
+                    d.value().to_string(),
+                )
+            })
             .collect();
     Ok(HttpResponse::Ok().json(hashes))
 }
@@ -105,7 +114,9 @@ async fn remove_file(
     }
 
     if delete_file_hash::delete_file_hash(&path, &data.stockage).is_err() {
-        return Err(actix_web::error::ErrorBadGateway("Erreur de suppression sur la base de donnée"));
+        return Err(actix_web::error::ErrorBadGateway(
+            "Erreur de suppression sur la base de donnée",
+        ));
     }
 
     Ok(HttpResponse::Ok().body(""))
@@ -113,12 +124,18 @@ async fn remove_file(
 
 struct AppState {
     dir: PathBuf,
-    stockage: driven::stockage_sqlite::SqliteStockage
+    stockage: driven::stockage_sqlite::SqliteStockage,
 }
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    println!("Serveur en ecoute sur le port 8080");
+    let mut builder = SslAcceptor::mozilla_intermediate(SslMethod::tls()).unwrap();
+    builder
+        .set_private_key_file("key.pem", SslFiletype::PEM)
+        .unwrap();
+    builder.set_certificate_chain_file("cert.pem").unwrap();
+
+    println!("Serveur en ecoute sur le port 8080 pour http et 8081 pour https");
     HttpServer::new(|| {
         App::new()
             .app_data(web::Data::new(AppState {
@@ -134,6 +151,7 @@ async fn main() -> std::io::Result<()> {
             )
     })
     .bind(("0.0.0.0", 8080))?
+    .bind_openssl(("0.0.0.0", 8081), builder)?
     .run()
     .await
 }

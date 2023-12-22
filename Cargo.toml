@@ -9,8 +9,9 @@ authors = ["Elian Ducheyne", "Florian Pereau"]
 [dependencies]
 actix-files = "0.6.2"
 actix-multipart = "0.6.1"
-actix-web = "4.4.0"
+actix-web = {version="4.4.0", features=["openssl"]}
 futures-util = "0.3.29"
+openssl = "0.10.61"
 serde = {version="1.0.193", features=["derive"]}
 serde_json = "1.0.108"
 sha2 = "0.10.8"
