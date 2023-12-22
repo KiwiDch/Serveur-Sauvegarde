@@ -2,7 +2,7 @@ use std::{io, path::Path};
 
 use crate::{
     domain::entities::hash::{FileHash, FileHashError},
-    driven::{self, stockage::{RepoCreateError, RepoDeleteError, StockageHash}},
+    driven::stockage::{RepoDeleteError, StockageHash},
 };
 
 pub enum RemoveError {

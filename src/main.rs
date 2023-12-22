@@ -105,7 +105,7 @@ async fn remove_file(
         return Err(actix_web::error::ErrorBadRequest("Cannot delete"));
     }
 
-    if let Err(e) = delete_file_hash::delete_file_hash(&path, &data.stockage) {
+    if delete_file_hash::delete_file_hash(&path, &data.stockage).is_err() {
         return Err(actix_web::error::ErrorBadGateway("Erreur de suppression sur la base de donnée"));
     }
 

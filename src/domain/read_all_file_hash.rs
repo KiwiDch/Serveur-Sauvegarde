@@ -1,7 +1,4 @@
-use crate::driven::{
-    self,
-    stockage::{self, RepoFindAllError, StockageHash},
-};
+use crate::driven::stockage::{RepoFindAllError, StockageHash};
 use std::path::Path;
 
 use super::entities::hash::FileHash;
