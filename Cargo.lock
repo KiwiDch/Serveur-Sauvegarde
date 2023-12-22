@@ -301,6 +301,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "619743e34b5ba4e9703bba34deac3427c72507c7159f5fd030aea8cac0cfe341"
 
 [[package]]
+name = "async-trait"
+version = "0.1.75"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fdf6721fb0140e4f897002dd086c06f6c27775df19cfe1fccb21181a48fd2c98"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.41",
+]
+
+[[package]]
 name = "autocfg"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1049,10 +1060,12 @@ dependencies = [
  "actix-files",
  "actix-multipart",
  "actix-web",
+ "async-trait",
  "futures-util",
  "serde",
  "serde_json",
  "sha2",
+ "sqlite",
  "walkdir",
 ]
 
@@ -1174,6 +1187,36 @@ checksum = "7b5fac59a5cb5dd637972e5fca70daf0523c9067fcdc4842f053dae04a18f8e9"
 dependencies = [
  "libc",
  "windows-sys 0.48.0",
+]
+
+[[package]]
+name = "sqlite"
+version = "0.32.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "03801c10193857d6a4a71ec46cee198a15cbc659622aabe1db0d0bdbefbcf8e6"
+dependencies = [
+ "libc",
+ "sqlite3-sys",
+]
+
+[[package]]
+name = "sqlite3-src"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bfc95a51a1ee38839599371685b9d4a926abb51791f0bc3bf8c3bb7867e6e454"
+dependencies = [
+ "cc",
+ "pkg-config",
+]
+
+[[package]]
+name = "sqlite3-sys"
+version = "0.15.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f2752c669433e40ebb08fde824146f50d9628aa0b66a3b7fc6be34db82a8063b"
+dependencies = [
+ "libc",
+ "sqlite3-src",
 ]
 
 [[package]]

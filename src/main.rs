@@ -2,14 +2,8 @@ use actix_files::NamedFile;
 use actix_multipart::Multipart;
 use actix_web::{get, put, web, App, Error, HttpResponse, HttpServer, Result};
 use futures_util::stream::StreamExt;
-use sha2::{Digest, Sha256};
-use std::{
-    collections::HashMap,
-    fs::File,
-    io::{self, Read, Write},
-    path::{Path, PathBuf},
-};
-use walkdir::WalkDir;
+use sauvegarde::{domain::{self, entities::hash, delete_file_hash}, driven};
+use std::{collections::HashMap, io::Write, path::PathBuf};
 
 #[put("/push/{path:.*}")]
 async fn push(
@@ -34,13 +28,18 @@ async fn push(
             path_file
         };
 
+        println!("{:?}", path);
         //Creation des dossiers si besoin
         //Creation du fichier
-        let mut file = web::block(|| {
-            if let Some(path) = path.parent() {
-                std::fs::create_dir_all(&path)?;
+        let mut file = web::block({
+            let path = path.clone();
+            move || {
+                if let Some(path) = path.parent() {
+                    std::fs::create_dir_all(path)?;
+                }
+                println!("{path:?}");
+                std::fs::File::create(path)
             }
-            std::fs::File::create(path)
         })
         .await
         .unwrap()?;
@@ -52,9 +51,13 @@ async fn push(
                 .await
                 .unwrap()?;
         }
+
+        if let Err(_) = domain::create_file_hash::create_file_hash(&path, &data.stockage) {
+            return Err(actix_web::error::ErrorBadGateway("erreur du serveur"));
+        }
     }
 
-    Ok(HttpResponse::Ok().body(""))
+    Ok(HttpResponse::Ok().body("created"))
 }
 
 #[get("/pull/{path:.*}")]
@@ -79,17 +82,32 @@ async fn get_hash(
         x
     };
 
+    let hashes: HashMap<hash::Path, hash::Hash> =
+        domain::read_all_file_hash::read_all_file_hash(&path,&data.stockage)
+            .unwrap()
+            .into_iter()
+            .map(|e| e.into())
+            .collect();
+    Ok(HttpResponse::Ok().json(hashes))
+    /*let path = {
+        let mut x = data.dir.clone();
+        x.push(path.to_owned());
+        x
+    };
+
     let hashes:HashMap<PathBuf,String> = calculate_hash_recursive(&path)
         .into_iter()
         .map(|(k, d)| (k.strip_prefix(data.dir.clone()).unwrap().to_owned(), d))
         .collect();
 
-    Ok(HttpResponse::Ok().json(hashes))
+    Ok(HttpResponse::Ok().json(hashes))*/
 }
 
 #[get("/rm/{path:.*}")]
-async fn remove_file(path: web::Path<PathBuf>, data: web::Data<AppState>) -> Result<HttpResponse, Error> {
-
+async fn remove_file(
+    path: web::Path<PathBuf>,
+    data: web::Data<AppState>,
+) -> Result<HttpResponse, Error> {
     let path = {
         let mut p = data.dir.clone();
         p.push(path.to_owned());
@@ -99,46 +117,16 @@ async fn remove_file(path: web::Path<PathBuf>, data: web::Data<AppState>) -> Res
         return Err(actix_web::error::ErrorBadRequest("Cannot delete"));
     }
 
+    if let Err(e) = delete_file_hash::delete_file_hash(&path, &data.stockage) {
+        return Err(actix_web::error::ErrorBadGateway("Erreur de suppression sur la base de donnée"));
+    }
+
     Ok(HttpResponse::Ok().body(""))
-}
-
-fn calculate_hash(file_path: &Path) -> io::Result<String> {
-    let mut file = File::open(file_path)?;
-    let mut hasher = Sha256::new();
-    let mut buffer = [0; 1024];
-
-    loop {
-        let bytes_read = file.read(&mut buffer)?;
-        if bytes_read == 0 {
-            break;
-        }
-        hasher.update(&buffer[..bytes_read]);
-    }
-
-    Ok(format!("{:x}", hasher.finalize()))
-}
-
-fn calculate_hash_recursive(path: &Path) -> HashMap<PathBuf, String> {
-    let mut hashes: HashMap<PathBuf, String> = HashMap::new();
-
-    for entry in WalkDir::new(path).into_iter().filter_map(|e| e.ok()) {
-        if entry.file_type().is_file() {
-            if let Ok(hash) = calculate_hash(entry.path()) {
-                hashes.insert(entry.path().to_owned(), hash.to_string());
-            }
-        } else if entry.path() != path {
-            let h = calculate_hash_recursive(entry.path());
-            for (key, value) in h.into_iter() {
-                hashes.insert(key, value);
-            }
-        }
-    }
-
-    hashes
 }
 
 struct AppState {
     dir: PathBuf,
+    stockage: driven::stockage_sqlite::SqliteStockage
 }
 
 #[actix_web::main]
@@ -148,13 +136,14 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .app_data(web::Data::new(AppState {
                 dir: PathBuf::from("./files"),
+                stockage: driven::stockage_sqlite::SqliteStockage::new("database.db"),
             }))
             .service(
                 web::scope("/files")
                     .service(push)
                     .service(get_file)
                     .service(get_hash)
-                    .service(remove_file)
+                    .service(remove_file),
             )
     })
     .bind(("0.0.0.0", 8080))?
