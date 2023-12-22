@@ -2,7 +2,7 @@ use actix_files::NamedFile;
 use actix_multipart::Multipart;
 use actix_web::{get, put, web, App, Error, HttpResponse, HttpServer, Result};
 use futures_util::stream::StreamExt;
-use sauvegarde::{domain::{self, entities::hash, delete_file_hash}, driven};
+use sauvegarde::{domain::{self, delete_file_hash}, driven};
 use std::{collections::HashMap, io::Write, path::PathBuf};
 
 #[put("/push/{path:.*}")]
