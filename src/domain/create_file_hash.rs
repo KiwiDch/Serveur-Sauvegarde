@@ -24,7 +24,6 @@ impl From<io::Error> for CreateError {
     }
 }
 
-#[must_use]
 pub fn create_file_hash<T>(path: &Path, stockage: &T) -> Result<FileHash, CreateError>
 where
     T: driven::stockage::StockageHash<FileHash>,

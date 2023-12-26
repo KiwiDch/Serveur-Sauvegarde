@@ -20,8 +20,8 @@ where
     let hashes: Vec<FileHash> = hashes
         .unwrap()
         .into_iter()
-        .filter(|e| e.path().value().starts_with(&path))
+        .filter(|e| e.path().value().starts_with(path))
         .collect();
-    
+
     Ok(hashes)
 }

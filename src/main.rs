@@ -54,7 +54,7 @@ async fn push(
                 .unwrap()?;
         }
 
-        if let Err(_) = domain::create_file_hash::create_file_hash(&path, &data.stockage) {
+        if domain::create_file_hash::create_file_hash(&path, &data.stockage).is_err() {
             return Err(actix_web::error::ErrorBadGateway("erreur du serveur"));
         }
     }
@@ -76,7 +76,7 @@ async fn get_file(path: web::Path<PathBuf>, data: web::Data<AppState>) -> Result
 #[get("/hash/{path:.*}")]
 async fn get_hash(
     path: web::Path<PathBuf>,
-    data: web::Data<AppState>
+    data: web::Data<AppState>,
 ) -> Result<HttpResponse, Error> {
     let path = {
         let mut x = data.config.file_path.clone();
@@ -91,7 +91,10 @@ async fn get_hash(
             .map(|e| e.into())
             .map(|(k, d)| {
                 (
-                    k.value().strip_prefix(data.config.file_path.clone()).unwrap().to_owned(),
+                    k.value()
+                        .strip_prefix(data.config.file_path.clone())
+                        .unwrap()
+                        .to_owned(),
                     d.value().to_string(),
                 )
             })
@@ -124,46 +127,59 @@ async fn remove_file(
 
 struct AppState {
     stockage: driven::stockage_sqlite::SqliteStockage,
-    config: Config
+    config: Config,
 }
 
-
-#[derive(Parser)]
+#[derive(Parser, Clone)]
 #[command(author, version, about, long_about = None)]
-struct Config{
-    #[arg(short, long, env, default_value= "./files")]
+struct Config {
+    #[arg(short, long, env, default_value = "./files")]
     file_path: PathBuf,
-    #[arg(short, long, env, default_value= "./cert.pem")]
+    #[arg(short, long, env, default_value = "./cert.pem")]
     cert_path: PathBuf,
-    #[arg(short, long, env, default_value= "./key.pem")]
+    #[arg(short, long, env, default_value = "./key.pem")]
     key_path: PathBuf,
+    #[arg(short, long, default_value = "8080")]
+    port: u16,
+    #[arg(short, long, default_value = "8081")]
+    tls_port: u16,
 }
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+    let config = Config::parse();
+
     let mut builder = SslAcceptor::mozilla_intermediate(SslMethod::tls()).unwrap();
     builder
-        .set_private_key_file("key.pem", SslFiletype::PEM)
+        .set_private_key_file(&config.key_path, SslFiletype::PEM)
         .unwrap();
-    builder.set_certificate_chain_file("cert.pem").unwrap();
+    builder
+        .set_certificate_chain_file(&config.cert_path)
+        .unwrap();
 
-    println!("Serveur en ecoute sur le port 8080 pour http et 8081 pour https");
-    HttpServer::new(|| {
-        App::new()
-            .app_data(web::Data::new(AppState {
-                config: Config::parse(),
-                stockage: driven::stockage_sqlite::SqliteStockage::new("database.db"),
-            }))
-            .service(
-                web::scope("/files")
-                    .service(push)
-                    .service(get_file)
-                    .service(get_hash)
-                    .service(remove_file),
-            )
+    println!(
+        "Serveur en ecoute sur le port {} pour http et {} pour https",
+        config.port, config.tls_port
+    );
+
+    HttpServer::new({
+        || {
+            App::new()
+                .app_data(web::Data::new(AppState {
+                    config: Config::parse(),
+                    stockage: driven::stockage_sqlite::SqliteStockage::new("database.db"),
+                }))
+                .service(
+                    web::scope("/files")
+                        .service(push)
+                        .service(get_file)
+                        .service(get_hash)
+                        .service(remove_file),
+                )
+        }
     })
-    .bind(("0.0.0.0", 8080))?
-    .bind_openssl(("0.0.0.0", 8081), builder)?
+    .bind(("0.0.0.0", config.port))?
+    .bind_openssl(("0.0.0.0", config.tls_port), builder)?
     .run()
     .await
 }

@@ -39,7 +39,7 @@ pub struct Path(PathBuf);
 
 impl Path {
     pub fn value(&self) -> &path::Path {
-        &(*self.0)
+        &self.0
     }
 }
 
@@ -78,9 +78,9 @@ impl FileHash {
     }
 }
 
-impl Into<(Path, Hash)> for FileHash {
-    fn into(self) -> (Path, Hash) {
-        (self.path, self.hash)
+impl From<FileHash> for (Path,Hash) {
+    fn from(value: FileHash) -> Self {
+        (value.path, value.hash)
     }
 }
 
