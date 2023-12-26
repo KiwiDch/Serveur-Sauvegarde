@@ -3,7 +3,11 @@ name = "sauvegarde"
 version = "0.1.0"
 edition = "2021"
 authors = ["Elian Ducheyne", "Florian Pereau"]
-about = "Serveur de sauvegarde"
+description = "Serveur de sauvegarde"
+
+[[bin]]
+name = "fserver"
+path = "src/main.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -11,7 +15,7 @@ about = "Serveur de sauvegarde"
 actix-files = "0.6.2"
 actix-multipart = "0.6.1"
 actix-web = {version="4.4.0", features=["openssl"]}
-clap = {version="4.4.11", features=["derive"]}
+clap = {version="4.4.11", features=["derive","env"]}
 futures-util = "0.3.29"
 openssl = "0.10.61"
 serde = {version="1.0.193", features=["derive"]}

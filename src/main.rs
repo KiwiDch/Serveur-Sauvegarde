@@ -27,7 +27,7 @@ async fn push(
 
         //On ajoute le nom du fichier a la fin
         let path = {
-            let mut path_file = data.config.path.clone();
+            let mut path_file = data.config.file_path.clone();
             path_file.push(&*path);
             path_file.push(filename);
             path_file
@@ -65,7 +65,7 @@ async fn push(
 #[get("/pull/{path:.*}")]
 async fn get_file(path: web::Path<PathBuf>, data: web::Data<AppState>) -> Result<NamedFile> {
     let path = {
-        let mut x = data.config.path.clone();
+        let mut x = data.config.file_path.clone();
         x.push(path.to_owned());
         x
     };
@@ -79,7 +79,7 @@ async fn get_hash(
     data: web::Data<AppState>
 ) -> Result<HttpResponse, Error> {
     let path = {
-        let mut x = data.config.path.clone();
+        let mut x = data.config.file_path.clone();
         x.push(path.to_owned());
         x
     };
@@ -91,7 +91,7 @@ async fn get_hash(
             .map(|e| e.into())
             .map(|(k, d)| {
                 (
-                    k.value().strip_prefix(data.config.path.clone()).unwrap().to_owned(),
+                    k.value().strip_prefix(data.config.file_path.clone()).unwrap().to_owned(),
                     d.value().to_string(),
                 )
             })
@@ -105,7 +105,7 @@ async fn remove_file(
     data: web::Data<AppState>,
 ) -> Result<HttpResponse, Error> {
     let path = {
-        let mut p = data.config.path.clone();
+        let mut p = data.config.file_path.clone();
         p.push(path.to_owned());
         p
     };
@@ -131,18 +131,16 @@ struct AppState {
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 struct Config{
-    #[arg(short, long, default_value= "./files")]
-    path: PathBuf,
-    #[arg(short, long, default_value= "./cert.pem")]
+    #[arg(short, long, env, default_value= "./files")]
+    file_path: PathBuf,
+    #[arg(short, long, env, default_value= "./cert.pem")]
     cert_path: PathBuf,
-    #[arg(short, long, default_value= "./key.pem")]
+    #[arg(short, long, env, default_value= "./key.pem")]
     key_path: PathBuf,
 }
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-
-
     let mut builder = SslAcceptor::mozilla_intermediate(SslMethod::tls()).unwrap();
     builder
         .set_private_key_file("key.pem", SslFiletype::PEM)
