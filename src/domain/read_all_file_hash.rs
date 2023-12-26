@@ -23,5 +23,7 @@ where
         .filter(|e| e.path().value().starts_with(&path))
         .collect();
 
+    println!("{:?}",hashes);
+
     Ok(hashes)
 }

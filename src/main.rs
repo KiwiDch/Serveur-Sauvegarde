@@ -1,14 +1,14 @@
 use actix_files::NamedFile;
 use actix_multipart::Multipart;
 use actix_web::{get, put, web, App, Error, HttpResponse, HttpServer, Result};
+use clap::Parser;
 use futures_util::stream::StreamExt;
+use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
 use sauvegarde::{
     domain::{self, delete_file_hash},
     driven,
 };
 use std::{collections::HashMap, io::Write, path::PathBuf};
-use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
-
 
 #[put("/push/{path:.*}")]
 async fn push(
@@ -27,7 +27,7 @@ async fn push(
 
         //On ajoute le nom du fichier a la fin
         let path = {
-            let mut path_file = data.dir.clone();
+            let mut path_file = data.config.path.clone();
             path_file.push(&*path);
             path_file.push(filename);
             path_file
@@ -65,7 +65,7 @@ async fn push(
 #[get("/pull/{path:.*}")]
 async fn get_file(path: web::Path<PathBuf>, data: web::Data<AppState>) -> Result<NamedFile> {
     let path = {
-        let mut x = data.dir.clone();
+        let mut x = data.config.path.clone();
         x.push(path.to_owned());
         x
     };
@@ -76,10 +76,10 @@ async fn get_file(path: web::Path<PathBuf>, data: web::Data<AppState>) -> Result
 #[get("/hash/{path:.*}")]
 async fn get_hash(
     path: web::Path<PathBuf>,
-    data: web::Data<AppState>,
+    data: web::Data<AppState>
 ) -> Result<HttpResponse, Error> {
     let path = {
-        let mut x = data.dir.clone();
+        let mut x = data.config.path.clone();
         x.push(path.to_owned());
         x
     };
@@ -91,7 +91,7 @@ async fn get_hash(
             .map(|e| e.into())
             .map(|(k, d)| {
                 (
-                    k.value().strip_prefix(data.dir.clone()).unwrap().to_owned(),
+                    k.value().strip_prefix(data.config.path.clone()).unwrap().to_owned(),
                     d.value().to_string(),
                 )
             })
@@ -105,7 +105,7 @@ async fn remove_file(
     data: web::Data<AppState>,
 ) -> Result<HttpResponse, Error> {
     let path = {
-        let mut p = data.dir.clone();
+        let mut p = data.config.path.clone();
         p.push(path.to_owned());
         p
     };
@@ -123,12 +123,26 @@ async fn remove_file(
 }
 
 struct AppState {
-    dir: PathBuf,
     stockage: driven::stockage_sqlite::SqliteStockage,
+    config: Config
+}
+
+
+#[derive(Parser)]
+#[command(author, version, about, long_about = None)]
+struct Config{
+    #[arg(short, long, default_value= "./files")]
+    path: PathBuf,
+    #[arg(short, long, default_value= "./cert.pem")]
+    cert_path: PathBuf,
+    #[arg(short, long, default_value= "./key.pem")]
+    key_path: PathBuf,
 }
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+
+
     let mut builder = SslAcceptor::mozilla_intermediate(SslMethod::tls()).unwrap();
     builder
         .set_private_key_file("key.pem", SslFiletype::PEM)
@@ -139,7 +153,7 @@ async fn main() -> std::io::Result<()> {
     HttpServer::new(|| {
         App::new()
             .app_data(web::Data::new(AppState {
-                dir: PathBuf::from("./files"),
+                config: Config::parse(),
                 stockage: driven::stockage_sqlite::SqliteStockage::new("database.db"),
             }))
             .service(
