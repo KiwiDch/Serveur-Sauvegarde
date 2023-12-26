@@ -22,8 +22,6 @@ where
         .into_iter()
         .filter(|e| e.path().value().starts_with(&path))
         .collect();
-
-    println!("{:?}",hashes);
-
+    
     Ok(hashes)
 }
