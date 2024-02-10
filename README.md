@@ -1,5 +1,5 @@
 # Sauvegarde Serveur
-Ce projet a été développé dans le cadre d'un TD de continuité de service. Le client à été développé par mon coepéquipé: https://github.com/0xA00/Client-save.
+Ce projet a été développé dans le cadre d'un TD de continuité de service. Le client à été développé par mon coéquipier: https://github.com/0xA00/Client-save.
 
 ## Fonctionnement
 La communication avec le serveur passe par une REST API. Le client communique avec le serveur dans l'objectif de faire une sauvegarde ou restaurer des fichiers.
